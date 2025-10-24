@@ -13,6 +13,9 @@ Controls:
 This script uses the agent logic in BJ.py for dealing and recommendations.
 """
 import sys
+import time
+import shutil
+import random
 from BJ import BlackjackAgent, basic_strategy, hand_value, is_blackjack
 
 agent = BlackjackAgent()
@@ -39,6 +42,58 @@ def recommend(player_cards, dealer_up):
     action = basic_strategy(player_cards, dealer_up, can_double, can_split, RULES['late_surrender'])
     mapping = {'H':'Hit', 'S':'Stand', 'D':'Double', 'P':'Split', 'R':'Surrender'}
     return mapping.get(action, 'Stand')
+
+
+def fancy_win_display(payout, title=None):
+    """Print a flashy, animated win banner with confetti and payout info.
+
+    Works in most modern terminals using ANSI escape codes. Short sleeps
+    create a simple animation. Keeps output safe if terminal width can't
+    be determined.
+    """
+    # ANSI helpers
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
+    FG_YEL = "\033[33m"
+    FG_GREEN = "\033[32m"
+    FG_MAG = "\033[35m"
+    BG_YEL = "\033[43m"
+
+    try:
+        cols = shutil.get_terminal_size().columns
+    except Exception:
+        cols = 80
+
+    # small confetti animation
+    confetti_chars = ['*','✦','✶','✺','•','🎉']
+    for _ in range(6):
+        line = ''.join(random.choice(confetti_chars + [' ']*6) for _ in range(cols))
+        color = random.choice([FG_YEL, FG_MAG, FG_GREEN])
+        print(color + line + RESET)
+        time.sleep(0.05)
+
+    # banner text
+    title = title or 'YOU WIN!'
+    payout_text = f"Payout: ${payout:.2f}"
+
+    # create centered banner lines
+    banner_lines = [f"{BOLD}{FG_GREEN}╔{'═'*(min(cols-4, len(payout_text)+20))}╗{RESET}",
+                    f"{BOLD}{FG_GREEN}║{' ' * (min(cols-6, len(payout_text)+18))}║{RESET}",
+                    f"{BOLD}{FG_YEL}{title.center(min(cols-6, len(payout_text)+18))}{RESET}",
+                    f"{BOLD}{FG_MAG}{payout_text.center(min(cols-6, len(payout_text)+18))}{RESET}",
+                    f"{BOLD}{FG_GREEN}╚{'═'*(min(cols-4, len(payout_text)+20))}╝{RESET}"]
+
+    # Print a small entrance animation for the banner
+    for i in range(1, len(banner_lines)+1):
+        print('\n'.join(banner_lines[:i]))
+        time.sleep(0.08)
+
+    # final celebratory confetti
+    for _ in range(3):
+        line = ''.join(random.choice(confetti_chars + [' ']*4) for _ in range(cols))
+        print(FG_YEL + line + RESET)
+        time.sleep(0.06)
+
 
 
 def play_round(player_bank, dealer_bank, bet=DEFAULT_BET):
@@ -86,8 +141,8 @@ def play_round(player_bank, dealer_bank, bet=DEFAULT_BET):
             print("Basic strategy would have recommended:", recommend(player, dealer_up))
             return player_bank, dealer_bank
     if is_blackjack(player):
-        print("Blackjack! You win 1.5x")
         payout = 2.5 * current_bet
+        fancy_win_display(payout, title='BLACKJACK!')
         player_bank += payout
         dealer_bank -= payout
         print("Basic strategy would have recommended:", recommend(player, dealer_up))
@@ -171,7 +226,7 @@ def play_round(player_bank, dealer_bank, bet=DEFAULT_BET):
     if dtotal > 21 or ptotal > dtotal:
         # Player wins: pays 2x current_bet (returns stake + winnings)
         payout = 2.0 * current_bet
-        print(f"You win! Payout: ${payout:.2f}")
+        fancy_win_display(payout)
         player_bank += payout
         dealer_bank -= payout
         # show recommendation for the decision point
@@ -228,8 +283,8 @@ def play_subhand(hand, dealer, per_hand_bet):
     ptotal, _ = hand_value(hand)
     dtotal, _ = hand_value(dealer_final)
     if dtotal > 21 or ptotal > dtotal:
-        print("You win this hand")
         payout = 2.0 * per_hand_bet
+        fancy_win_display(payout)
         print("At your last decision point your hand was:", ' '.join(map(card_str, last_decision[0])), "vs dealer", last_decision[1])
         print("Basic strategy would have recommended:", recommend(last_decision[0], last_decision[1]))
         return payout, -payout
